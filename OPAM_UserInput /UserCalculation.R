@@ -186,6 +186,9 @@ if(sat.vec[i]<0.5){pred.vec[i] <- "UNSAT"}
 OutputData$ProbSat <- round(sat.vec,3)
 OutputData$State <- pred.vec
 
+#Set any column which fails the chull test to unsaturated
+OutputData$State[which(OutputData$InOPAMchull==FALSE)] <- "UNSAT"
+
 ##### PREDICT PRESSURE AND TEMPERATURE
 
 #Load predict objects
