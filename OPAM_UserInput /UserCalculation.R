@@ -17,7 +17,7 @@ if(length(ls())>0){rm(list = ls())}
 pack1 <- suppressWarnings(require(terra, quietly = TRUE))
 if(pack1 == FALSE) {install.packages("terra");library(terra, quietly = T)}
 pack2 <- suppressWarnings(require(compositions, quietly = TRUE))
-if(pack1 == FALSE) {install.packages("compositions");library(compositions, quietly = T)}
+if(pack2 == FALSE) {install.packages("compositions");library(compositions, quietly = T)}
 library(terra, quietly = T); library(compositions, quietly = T); rm(pack1); rm(pack2)
 '%!in%' <- function(x,y)!('%in%'(x,y))
 options(scipen=999)
