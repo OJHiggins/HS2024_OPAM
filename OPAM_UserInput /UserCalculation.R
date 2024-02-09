@@ -5,11 +5,13 @@
 #ENSURE THAT THE WORKING DIRECTORY IS 
 #"SET TO SOURCE FILE LOCATION" BEFORE RUNNING
 #(SESSION -> SET WORKING DIRECTORY -> TO SOURCE FILE LOCATION).
-#TO RUN: SELECT WHOLE CODE (WITH MOUSE OR CMD+A) THEN PRESS RUN.
+
+#TO RUN: CLICK "SOURCE" IN TOP BAR, OR SELECT WHOLE CODE (CMD+A) AND CLICK RUN.
+
 #PACKAGES WILL BE INSTALLED AUTOMATICALLY IF NOT DETECTED.
 #IF INSTALL PACKAGE PROMPTS APPEAR SELECT YES.
 
-######## DO NOT CHANGE BELOW THIS POINT ########
+######## DO NOT CHANGE CODE BELOW THIS POINT ########
 
 #clean environment if dirty
 if(length(ls())>0){rm(list = ls())}
@@ -25,7 +27,7 @@ options(scipen=999)
 ##### LOAD DATA
 
 #Load csv of user data
-InputData <- as.data.frame(read.csv(file = "UserData.csv", header = T))
+InputData <- suppressWarnings(as.data.frame(read.csv(file = "UserData.csv", header = T)))
 
 #Load oxiparams
 load("DO-NOT-DELETE/OxiParams.Rdata")
@@ -35,7 +37,7 @@ load("DO-NOT-DELETE/SatExp.Rdata")
 
 ##### NORMALISE AND PERFORM CATION CALCULATIONS
 
-#Isolate oxides from row headers
+#Isolate oxides from row headers and retain extra columns for later
 all.ox <- rownames(OxiParams) 
 ox <- all.ox[which(all.ox %in% colnames(InputData))]
 if(length(which(ox%in% "H2O" == T))>0) {ox <- ox[-which(ox == "H2O")]}
@@ -46,6 +48,7 @@ if(length(not.ox)>0){ad.info <- InputData[,not.ox]}
 CompData <- InputData[,ox]
 #convert to numerics which will force weird characters or typos to NA
 CompData <- as.data.frame(suppressWarnings(apply(CompData, 2, function(x){as.numeric(x)})))
+if(nrow(InputData)==1){CompData <- as.data.frame(t(CompData));rownames(CompData) <- NULL}
 #Deal with missing values for oxides
 CompData[is.na(CompData)] <- 0
 #Normalise to 100wt% anhydrous
@@ -57,6 +60,7 @@ NewMolWeights <- round(OxPar$OWeight,2)/OxPar$Cat
 molprop <- apply(CompData, MARGIN = 1, function(x) x / NewMolWeights)
 molsums <- apply(molprop, MARGIN = 2, sum, na.rm = T)
 cats <- as.data.frame(apply(molprop, MARGIN = 1, function(x) x/molsums))
+if(nrow(InputData)==1){cats <- as.data.frame(t(cats));rownames(cats) <- NULL}
 colnames(cats) <- OxPar$ElLabel
 cats <- round(cats,4)
 
@@ -113,8 +117,9 @@ for(i in 1:nrow(feat.df)){
   chull.id[[i]] <- chull(x = chull.df$x,y=chull.df$y)
   coord.ls[[i]] <- chull.df[chull.id[[i]],]
 }
+names(coord.ls) <- paste0(feat.df[,1], "-", feat.df[,2])
 
-#chull check for checking if point lie in all OPAM convex hulls
+#chull check for checking if point lie in all 28 OPAM convex hulls
 chull.test <- list()
 for(i in 1:nrow(feat.df)){
 #With SP
@@ -126,6 +131,13 @@ x.pts <- SatTestData[,feat.df[i,1]]; y.pts <- SatTestData[,feat.df[i,2]]
 pts <- vect(cbind(x.pts, y.pts))
 poly.ext <- extract(pols, pts)
 chull.test[[i]] <- as.integer(is.na(poly.ext[,2])==F)
+#plot(uncomment if you want to see how the convex hull works)
+# par(pty="s")
+# sz <- as.vector(ext(pols))
+# plot(x=opam[,feat.df[i,1]], y=opam[,feat.df[i,2]], xlab=feat.df[i,1], ylab=feat.df[i,2],
+#      xlim=c(sz[1],sz[2]), ylim=c(sz[3],sz[4]), pch = 21, cex=0.5, bg="white", main=paste0("Chull",i))
+# polygon(x=x.pol,y=y.pol,lty=2)
+# points(x=x.pts,y=y.pts, pch=21, bg = "orange")
 }
 chull.test <- do.call(cbind,chull.test)
 chull.sat <- rowSums(chull.test)>=nrow(feat.df)
@@ -137,6 +149,7 @@ OutputData$InOPAMchull <- chull.sat
 #Bind unknown and opam data
 SatTestData$id <- "UNK"
 sat.input <- rbind(SatTestData,sat.exp[,c(feat,"id")])
+
 #scale unknown and opam data
 scal <- as.data.frame(ilr(sat.input[,feat]))
 colnames(scal) <- paste0("ilr",seq(1,length(feat)-1),"_scal")
@@ -154,7 +167,7 @@ mat <- norm01(mat)
 mat[mat == 0] <- NA
 
 #resize distance matrix
-mat <- as.matrix(mat[1:nrow(InputData), (nrow(InputData)+1):nrow(mat)])
+mat <- as.matrix(mat[1:nrow(InputData), (nrow(InputData)+1):nrow(mat), drop=F])
 colnames(mat) <- 1:nrow(sat.exp)
 
 #Give the state a 1 or 0
@@ -215,8 +228,9 @@ nm.rdata <- paste0("OutputData",raw.nm,".Rdata")
 #Save as csv and Rdata
 write.csv(x = OutputData, file = nm.csv, row.names = F)
 save(x = OutputData, file = nm.rdata, row.names = F)
-rm(list=setdiff(ls(), "OutputData"))
-print("CALCULATION IS COMPLETE. CHECK DIRECTORY FOLDER FOR OUTPUT CSV.")
+rm(list= ls()[!(ls() %in% c('OutputData','raw.nm'))])
+print(paste0("CALCULATION IS COMPLETE. CHECK DIRECTORY FOLDER FOR OUTPUT FILES NAMED OutputData",raw.nm))
+
 
 
 #LettersRBetterThanSnakes #pythOFF
